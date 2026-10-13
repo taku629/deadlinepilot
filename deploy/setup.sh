@@ -15,7 +15,7 @@ gcloud config set project "$PROJECT_ID"
 echo "== enabling APIs =="
 gcloud services enable \
   run.googleapis.com \
-  vertexai.googleapis.com \
+  aiplatform.googleapis.com \
   firestore.googleapis.com \
   secretmanager.googleapis.com \
   cloudbuild.googleapis.com \
@@ -25,7 +25,7 @@ gcloud services enable \
   --project "$PROJECT_ID"
 
 echo "== Firestore (Native mode) =="
-gcloud firestore databases create --region="$REGION" --project="$PROJECT_ID" || true
+gcloud firestore databases create --location="$REGION" --project="$PROJECT_ID" || true
 
 echo "== service account =="
 gcloud iam service-accounts create "$SA_NAME" \

@@ -24,8 +24,8 @@ gcloud run deploy deadlinepilot-api \
   --service-account "$SA" \
   --allow-unauthenticated \
   --min-instances 0 --max-instances 5 \
-  --set-env-vars "GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${VERTEX_LOCATION},GOOGLE_GENAI_USE_VERTEXAI=true,USE_FIRESTORE=true" \
-  --set-secrets "SESSION_SECRET=session-secret:latest"
+  --set-env-vars "GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${VERTEX_LOCATION},GOOGLE_GENAI_USE_VERTEXAI=true,USE_FIRESTORE=true,SEED_DEMO=true" \
+  --set-secrets "SESSION_SECRET=session-secret:latest,JUDGE_PASSWORD=judge-password:latest"
 
 BACKEND_URL=$(gcloud run services describe deadlinepilot-api \
   --region "$REGION" --project "$PROJECT_ID" --format 'value(status.url)')
