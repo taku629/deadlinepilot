@@ -1,0 +1,104 @@
+:root {
+  --bg: #0f1218;
+  --panel: #171c26;
+  --panel2: #1d2432;
+  --line: #2a3242;
+  --txt: #e8ecf3;
+  --dim: #97a3b6;
+  --acc: #4f8cff;
+  --ok: #3fb97c;
+  --warn: #e5a13c;
+  --bad: #e05c5c;
+  --purp: #a883f6;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--txt);
+  font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Segoe UI', sans-serif;
+  font-size: 14px;
+}
+a { color: var(--acc); text-decoration: none; }
+button {
+  background: var(--acc); color: #fff; border: 0; border-radius: 8px;
+  padding: 8px 16px; font-size: 14px; cursor: pointer; font-weight: 600;
+}
+button:disabled { opacity: .5; cursor: default; }
+button.ghost { background: transparent; border: 1px solid var(--line); color: var(--dim); }
+button.danger { background: var(--bad); }
+input, textarea, select {
+  background: var(--panel2); color: var(--txt); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px 12px; font-size: 14px; width: 100%;
+  font-family: inherit;
+}
+textarea { resize: vertical; }
+.layout { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 216px; background: var(--panel); border-right: 1px solid var(--line);
+  padding: 20px 12px; position: sticky; top: 0; height: 100vh; flex-shrink: 0;
+}
+.sidebar h1 { font-size: 19px; margin: 0 8px 24px; }
+.sidebar h1 span { color: var(--acc); }
+.nav a {
+  display: block; padding: 9px 10px; border-radius: 8px; color: var(--dim);
+  margin-bottom: 3px; font-weight: 500;
+}
+.nav a.active, .nav a:hover { background: var(--panel2); color: var(--txt); }
+.nav .badge {
+  float: right; background: var(--warn); color: #111; border-radius: 10px;
+  font-size: 11px; padding: 1px 7px; font-weight: 700;
+}
+.main { flex: 1; padding: 28px 32px; max-width: 1100px; }
+.main h2 { margin-top: 0; font-size: 22px; }
+.card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 18px 20px; margin-bottom: 14px;
+}
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+th { color: var(--dim); font-size: 12px; font-weight: 600; }
+.pill {
+  display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px;
+  font-weight: 600; border: 1px solid transparent;
+}
+.pill.ok { color: var(--ok); border-color: var(--ok); }
+.pill.warn { color: var(--warn); border-color: var(--warn); }
+.pill.bad { color: var(--bad); border-color: var(--bad); }
+.pill.info { color: var(--acc); border-color: var(--acc); }
+.pill.purp { color: var(--purp); border-color: var(--purp); }
+.pill.dim { color: var(--dim); border-color: var(--line); }
+.dim { color: var(--dim); }
+.small { font-size: 12px; }
+.row { display: flex; gap: 12px; align-items: center; }
+.grid { display: grid; gap: 14px; }
+.grid.cols4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.statnum { font-size: 28px; font-weight: 700; margin: 6px 0 2px; }
+.mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; }
+.tl { border-left: 2px solid var(--line); margin-left: 10px; padding-left: 18px; }
+.tl .ev { position: relative; padding: 8px 0 14px; }
+.tl .ev::before {
+  content: ''; position: absolute; left: -25px; top: 13px; width: 10px;
+  height: 10px; border-radius: 50%; background: var(--acc);
+}
+.tl .ev.sec::before { background: var(--bad); }
+.tl .ev.model::before { background: var(--purp); }
+.tl .ev.err::before { background: var(--bad); }
+pre {
+  background: var(--panel2); border-radius: 8px; padding: 10px 12px;
+  overflow: auto; font-size: 12px; color: var(--dim); white-space: pre-wrap;
+  word-break: break-all;
+}
+.loginwrap {
+  display: flex; align-items: center; justify-content: center; min-height: 100vh;
+}
+.loginbox { width: 340px; }
+.loginbox h1 { font-size: 26px; margin-bottom: 4px; }
+.loginbox h1 span { color: var(--acc); }
+.alert {
+  border: 1px solid var(--warn); background: rgba(229, 161, 60, .08);
+  border-radius: 10px; padding: 12px 16px; margin-bottom: 14px;
+}
+.alert.bad { border-color: var(--bad); background: rgba(224, 92, 92, .08); }
+.countdown { font-weight: 700; }
+.u-urgent { color: var(--bad); }
+.u-soon { color: var(--warn); }
+.u-ok { color: var(--ok); }

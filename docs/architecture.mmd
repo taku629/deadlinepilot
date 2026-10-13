@@ -1,0 +1,50 @@
+flowchart TB
+    subgraph User["ユーザー（学生エンジニア / 審査員）"]
+        UI["ブラウザ UI（日本語）"]
+    end
+
+    subgraph CR_FE["Cloud Run: deadlinepilot-web"]
+        NGINX["nginx<br/>静的SPA配信 + /api プロキシ"]
+    end
+
+    subgraph CR_BE["Cloud Run: deadlinepilot-api (FastAPI)"]
+        AUTH["認証 (ID/Password<br/>署名付きトークン)"]
+        subgraph AGENT["ADK Planner エージェント"]
+            PLAN["LlmAgent<br/>gemini-2.5-flash"]
+            direction TB
+            T1["fetch_page<br/>(ドメイン allowlist)"]
+            T2["parse_email"]
+            T3["extract_deadlines<br/>(structured output)"]
+            T4["normalize_timezone<br/>(zoneinfo・LLM禁止)"]
+            T5["upsert_deadline / detect_conflicts"]
+            T6["propose_action<br/>(外部書込みは提案のみ)"]
+        end
+        SEC["注入防御<br/>①ヒューリスティック<br/>②Gemini分類器<br/>③区切りタグ隔離"]
+        GOV["ガバナンス<br/>ツール上限14回<br/>トークン上限<br/>240s タイムアウト"]
+        TRACE["トレース記録<br/>step/ツール/トークン/コスト"]
+    end
+
+    subgraph GCP["Google Cloud"]
+        VAI["Vertex AI<br/>Gemini 2.5 Flash<br/>(+ Flash-Lite 分類器)"]
+        FS[("Firestore<br/>users/sources/deadlines<br/>proposals/runs")]
+        SM["Secret Manager<br/>SESSION_SECRET 等"]
+        CL["Cloud Logging<br/>構造化ログ"]
+    end
+
+    HUMAN{"人間の承認ゲート<br/>(承認待ちUI)"}
+    ICS["ICS生成・DL<br/>(承認後のみ実行)"]
+
+    UI --> NGINX --> AUTH
+    AUTH --> AGENT
+    PLAN --> T1 & T2 & T3 & T4 & T5 & T6
+    T1 & T2 --> SEC
+    AGENT --> GOV
+    AGENT --> TRACE
+    T3 --> VAI
+    SEC --> VAI
+    AGENT --> FS
+    T6 --> HUMAN
+    HUMAN -->|承認| ICS
+    TRACE --> CL
+    CR_BE --> SM
+    NGINX --> UI
