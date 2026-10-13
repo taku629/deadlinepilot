@@ -75,9 +75,15 @@ python -m seed.seed   # backend/ から。JUDGE_PASSWORD と USE_FIRESTORE=true
 
 min-instances=0, max=5/3 でコスト最小化。
 
+## デプロイ済み環境（審査用）
+
+- **アプリ**: https://deadlinepilot-web-6hgkaj4aiq-an.a.run.app
+- API: https://deadlinepilot-api-6hgkaj4aiq-an.a.run.app （`/api/health` で生存確認可）
+- GCP プロジェクト: `deadlinepilot-tm`（asia-northeast1、Vertex は us-central1）
+
 ## 審査用テストアカウント
 
-- ID: `judge` / PW: デプロイ時の `JUDGE_PASSWORD`
+- ID: `judge` / PW: `ChangeMe-Demo-2026!`（デプロイ時の `JUDGE_PASSWORD`）
 - 投入済みサンプル: 締切10件（AoE/PT/UTC/JST 混在・矛盾1件・要確認1件）、
   未処理ソース3件（クリーン2件＋**注入入り悪意メール1件**）、承認待ち1件
 
