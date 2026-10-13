@@ -10,6 +10,9 @@ class Settings:
     gcp_project: str = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
     gcp_location: str = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
     use_vertexai: bool = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "true").lower() == "true"
+    # Local-dev fallback only: an AI Studio API key can exercise the same
+    # models without Vertex AI (production always uses Vertex).
+    gemini_api_key: str = os.environ.get("GEMINI_API_KEY", "")
     use_firestore: bool = os.environ.get("USE_FIRESTORE", "true").lower() == "true"
 
     # Models
@@ -18,7 +21,7 @@ class Settings:
     classifier_model: str = os.environ.get("CLASSIFIER_MODEL", "gemini-2.5-flash-lite")
 
     # Agent governance limits
-    max_tool_calls: int = int(os.environ.get("MAX_TOOL_CALLS", "14"))
+    max_tool_calls: int = int(os.environ.get("MAX_TOOL_CALLS", "20"))
     max_total_tokens: int = int(os.environ.get("MAX_TOTAL_TOKENS", "200000"))
     run_timeout_seconds: int = int(os.environ.get("RUN_TIMEOUT_SECONDS", "240"))
     max_untrusted_chars: int = int(os.environ.get("MAX_UNTRUSTED_CHARS", "24000"))

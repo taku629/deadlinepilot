@@ -23,11 +23,14 @@ def get_client():
         with _client_lock:
             if _client is None:
                 from google import genai
-                _client = genai.Client(
-                    vertexai=settings.use_vertexai,
-                    project=settings.gcp_project or None,
-                    location=settings.gcp_location,
-                )
+                if settings.gemini_api_key and not settings.use_vertexai:
+                    _client = genai.Client(api_key=settings.gemini_api_key)
+                else:
+                    _client = genai.Client(
+                        vertexai=True,
+                        project=settings.gcp_project or None,
+                        location=settings.gcp_location,
+                    )
     return _client
 
 
