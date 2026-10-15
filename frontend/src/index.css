@@ -101,7 +101,7 @@ pre {
   border-radius: 10px; padding: 12px 16px; margin-bottom: 14px;
 }
 .alert.bad { border-color: var(--bad); background: rgba(224, 92, 92, .08); }
-.countdown { font-weight: 700; }
+.countdown { font-weight: 700; white-space: nowrap; }
 .u-urgent { color: var(--bad); }
 .u-soon { color: var(--warn); }
 .u-ok { color: var(--ok); }
