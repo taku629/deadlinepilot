@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Route, Routes, useParams } from 'react-router-dom'
 import { api } from '../api'
+import { StepList } from '../steps'
+
+const TRIGGER: Record<string, [string, string]> = {
+  manual: ['手動', 'info'], watch: ['手動巡回', 'purp'], schedule: ['自動巡回', 'purp'],
+}
 
 function RunList() {
   const [rows, setRows] = useState<any[]>([])
@@ -11,7 +16,7 @@ function RunList() {
       <div className="card">
         <table>
           <thead>
-            <tr><th>実行ID</th><th>開始</th><th>状態</th><th>ツール</th>
+            <tr><th>実行ID</th><th>開始</th><th>起動</th><th>状態</th><th>ツール</th>
               <th>トークン(in/out)</th><th>推定費用</th><th>注入検知</th></tr>
           </thead>
           <tbody>
@@ -19,7 +24,8 @@ function RunList() {
               <tr key={r.id}>
                 <td><NavLink to={`/runs/${r.id}`} className="mono">
                   {r.id.slice(0, 8)}</NavLink></td>
-                <td className="small">{new Date(r.started_at).toLocaleString('ja-JP')}</td>
+                <td className="small">{new Date(r.started_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}</td>
+                <td>{(() => { const t = TRIGGER[r.trigger || 'manual'] || [r.trigger, 'dim']; return <span className={`pill ${t[1]}`}>{t[0]}</span> })()}</td>
                 <td><span className={`pill ${r.status === 'success' ? 'ok' : r.status === 'error' ? 'bad' : 'info'}`}>
                   {r.status}</span>{r.error && <div className="small dim">{r.error}</div>}</td>
                 <td>{r.tool_calls}</td>
@@ -31,7 +37,7 @@ function RunList() {
               </tr>
             ))}
             {rows.length === 0 &&
-              <tr><td colSpan={7} className="dim">まだ実行がありません。</td></tr>}
+              <tr><td colSpan={8} className="dim">まだ実行がありません。</td></tr>}
           </tbody>
         </table>
       </div>
@@ -39,10 +45,6 @@ function RunList() {
   )
 }
 
-const KIND_ICON: Record<string, string> = {
-  tool_call: '🔧', tool_result: '📥', model: '🧠',
-  security: '🛡️', info: 'ℹ️', error: '⛔',
-}
 
 function RunDetail() {
   const { id } = useParams()
@@ -50,7 +52,7 @@ function RunDetail() {
   useEffect(() => {
     if (!id) return
     api.runDetail(id).then(setRun).catch(() => {})
-    const t = setInterval(() => api.runDetail(id).then(setRun).catch(() => {}), 4000)
+    const t = setInterval(() => api.runDetail(id).then(setRun).catch(() => {}), 2000)
     return () => clearInterval(t)
   }, [id])
 
@@ -70,23 +72,10 @@ function RunDetail() {
           <div className="statnum" style={{ color: run.injection_detections ? 'var(--bad)' : 'var(--ok)' }}>
             {run.injection_detections}</div></div>
       </div>
+      {run.summary && <div className="card summary">{run.summary}</div>}
       <div className="card">
         <h3 style={{ marginTop: 0 }}>ステップタイムライン</h3>
-        <div className="tl">
-          {(run.steps || []).map((s: any) => (
-            <div key={s.seq}
-              className={`ev ${s.kind === 'security' ? 'sec' : s.kind === 'model' ? 'model' : s.kind === 'error' ? 'err' : ''}`}>
-              <div className="small dim">
-                #{s.seq} {new Date(s.ts).toLocaleTimeString('ja-JP')}
-                {s.latency_ms ? ` · ${s.latency_ms}ms` : ''}
-              </div>
-              <div>
-                {KIND_ICON[s.kind] || '•'} <b>{s.name}</b>
-              </div>
-              <div className="small">{s.summary}</div>
-            </div>
-          ))}
-        </div>
+        <StepList steps={run.steps || []} live={run.status === 'running'} />
       </div>
     </div>
   )

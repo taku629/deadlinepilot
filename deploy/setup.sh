@@ -22,6 +22,7 @@ gcloud services enable \
   artifactregistry.googleapis.com \
   logging.googleapis.com \
   cloudtrace.googleapis.com \
+  cloudscheduler.googleapis.com \
   --project "$PROJECT_ID"
 
 echo "== Firestore (Native mode) =="

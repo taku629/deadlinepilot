@@ -112,3 +112,36 @@ pre {
 .pill.info { background: rgba(79, 140, 255, .12); }
 .nav a { font-size: 15.5px; }
 .card h3 { font-size: 18px; }
+
+/* ---- v3: dashboard, live trace, monitoring ---- */
+.section { font-size: 17px; margin: 22px 0 10px; color: var(--dim); font-weight: 700; }
+.grid.tops { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.card.top { border-top: 4px solid var(--ok); }
+.card.top.top-u-urgent { border-top-color: var(--bad); }
+.card.top.top-u-soon { border-top-color: var(--warn); }
+.card.top .bigcount { font-size: 26px; font-weight: 800; margin: 4px 0 6px; white-space: nowrap; }
+.card.top .toptitle { font-weight: 700; font-size: 17px; margin-bottom: 6px; }
+.card.kpi { padding: 14px 18px; margin-bottom: 0; }
+.card.kpi .statnum { font-size: 30px; }
+a.card.link { color: var(--txt); display: block; }
+a.card.link:hover { border-color: var(--acc); }
+.alert.purp { border-color: var(--purp); background: rgba(168, 131, 246, .10); }
+tr.passed td { opacity: .5; }
+.tl .ev.watch::before { background: var(--warn); }
+.tl .ev.io::before { background: var(--line); }
+.tl .ev.io { opacity: .7; }
+.tl .ev.pending::before { animation: pulse 1s infinite; }
+.evhead { display: flex; gap: 8px; align-items: center; }
+.evicon { width: 22px; text-align: center; }
+.thought { background: rgba(168, 131, 246, .10); border-left: 3px solid var(--purp);
+  padding: 6px 10px; border-radius: 6px; margin-top: 4px; font-size: 14.5px; }
+.result { color: var(--ok); margin-top: 2px; }
+.card.live { border-color: var(--acc); }
+.summary { background: var(--panel2); border-radius: 8px; padding: 10px 14px; margin: 10px 0; line-height: 1.7; }
+.card.summary { background: var(--panel); border-left: 4px solid var(--acc); }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--bad);
+  margin-right: 6px; animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+.watchcard { border-left: 4px solid var(--warn); }
+.watchcard .demo { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.nowrap { white-space: nowrap; }

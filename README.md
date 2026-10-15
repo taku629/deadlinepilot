@@ -11,10 +11,18 @@
 Kaggle・AtCoder・ハッカソン・奨学金・インターンなど、学生は数十の締切を
 告知メール・公式ページ・Discord から手作業で管理しています。
 AoE / UTC / PT / JST のタイムゾーン取り違えや登録漏れで機会を失うことが
-よくあります。
+よくあります。さらに締切は**後から延長・変更される**のに、一度メモした
+締切を見直す人はほとんどいません。
 
 ## ソリューションと特徴
 
+- **締切の変更を自律監視**: Cloud Scheduler が6時間ごとに登録 URL を
+  再取得し、ページ指紋（本文ハッシュ）が変わったときだけエージェントを起動。
+  エージェントは新旧の締切を照合し「旧 → 新」を人間に報告・ICS 更新を提案。
+  変化がなければ LLM を呼ばない（トークン消費 0）ので常時監視でも低コスト。
+  審査用に、締切を延長できる架空の主催者ページ（`/demo/notice/...`）を内蔵。
+- **ライブ実行ビュー**: 実行中の各ステップ（判断理由・ツール・結果・所要時間）
+  を UI にリアルタイム表示。生のモデル入出力も監査用に保存。
 - **自律エージェント**: Google ADK の Planner（Gemini 2.5 Flash / Vertex AI）
   が目標「締切リストを最新・正確に保つ」に基づきツールの使用順を判断。
 - **決定的な正規化**: タイムゾーン計算は LLM にさせず zoneinfo で変換
@@ -22,8 +30,9 @@ AoE / UTC / PT / JST のタイムゾーン取り違えや登録漏れで機会�
 - **注入対策（3層）**: ①外部テキストを `<<UNTRUSTED_EXTERNAL_DATA>>` タグで
   隔離 ②ヒューリスティックパターン検査 ③Gemini 分類器。
   検知ソースは隔離（quarantine）され UI に警告表示。
-- **ガバナンス**: ツール allowlist・ドメイン allowlist・ツール呼出上限・
-  トークン上限・実行タイムアウトを Runner が強制。
+- **ガバナンス**: ツール allowlist（7種）・ドメイン allowlist・
+  ツール呼出上限20回/実行・トークン上限20万/実行・240秒タイムアウトを
+  Runner が強制。Scheduler からの起動は共有シークレットで認証。
 - **人間の承認ゲート**: 外部書き込み（カレンダー登録等）はすべて
   「提案」としてキューに入り、承認後のみ実行（ICS ダウンロード）。
 - **可観測性**: 各ステップ（思考要約・ツール入出力・所要時間・トークン・
@@ -118,3 +127,9 @@ Secret Manager、Cloud Logging。
 - シークレットは Secret Manager（SESSION_SECRET, JUDGE_PASSWORD）。
 - ログにメール本文・生テキストを出さない（要約のみ）。
 - 人間承認なしの外部書き込みは不可（propose_action は永続化のみ）。
+
+## ライセンス
+
+MIT License（`LICENSE`）。主な依存 OSS: FastAPI (MIT), Google ADK (Apache-2.0),
+google-genai (Apache-2.0), trafilatura (Apache-2.0), httpx (BSD-3),
+python-dateutil (Apache-2.0/BSD), React (MIT), Vite (MIT), React Router (MIT)。

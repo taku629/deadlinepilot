@@ -33,8 +33,13 @@ export const api = {
   sources: () => req('/sources'),
   addSource: (type: string, url?: string, raw_text?: string) =>
     req('/sources', { method: 'POST', body: JSON.stringify({ type, url, raw_text }) }),
-  run: (source_ids?: string[]) =>
-    req('/runs', { method: 'POST', body: JSON.stringify({ source_ids: source_ids || [] }) }),
+  run: (source_ids?: string[], run_id?: string) =>
+    req('/runs', { method: 'POST', body: JSON.stringify({ source_ids: source_ids || [], run_id }) }),
+  watch: (run_id?: string) =>
+    req('/watch', { method: 'POST', body: JSON.stringify({ run_id }) }),
+  watchStatus: () => req('/watch/status'),
+  demoNotice: (version: number) =>
+    req('/demo/notice', { method: 'POST', body: JSON.stringify({ version }) }),
   runs: () => req('/runs'),
   runDetail: (id: string) => req(`/runs/${id}`),
   deadlines: () => req('/deadlines'),
@@ -43,4 +48,14 @@ export const api = {
   approve: (id: string) => req(`/proposals/${id}/approve`, { method: 'POST' }),
   reject: (id: string) => req(`/proposals/${id}/reject`, { method: 'POST' }),
   stats: () => req('/stats'),
+  downloadIcs: async (id: string) => {
+    const res = await fetch(`${BASE}/proposals/${id}/ics`, {
+      headers: { Authorization: `Bearer ${token()}` },
+    })
+    if (!res.ok) throw new Error(`${res.status}`)
+    const url = URL.createObjectURL(await res.blob())
+    const a = document.createElement('a')
+    a.href = url; a.download = `deadline_${id}.ics`; a.click()
+    URL.revokeObjectURL(url)
+  },
 }

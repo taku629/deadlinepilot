@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { api, token } from '../api'
+import { api } from '../api'
+import { clean } from '../steps'
 
 const KIND: Record<string, string> = {
   ics_event: '📅 カレンダー登録 (ICS)',
@@ -33,12 +34,10 @@ export default function Approvals({ onChange }: { onChange?: (n: number) => void
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontWeight: 700 }}>{KIND[p.kind] || p.kind}</div>
-            <div style={{ margin: '6px 0 2px' }}>{p.title}</div>
-            <div className="small dim">{p.detail}</div>
+            <div style={{ margin: '6px 0 2px', fontSize: 17 }}>{clean(p.title)}</div>
+            <div className="small dim">{clean(p.detail)}</div>
             <div className="small dim">
-              提案日時: {new Date(p.created_at).toLocaleString('ja-JP')}
-              {p.payload?.deadline_utc &&
-                ` / 対象締切(UTC): ${p.payload.deadline_utc}`}
+              提案日時: {new Date(p.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
             </div>
           </div>
           <div className="row">
@@ -50,9 +49,9 @@ export default function Approvals({ onChange }: { onChange?: (n: number) => void
               </>
             )}
             {p.status === 'approved' && p.kind === 'ics_event' && (
-              <a href={`/api/proposals/${p.id}/ics`} target="_blank">
-                <button className="ghost">ICSをダウンロード</button>
-              </a>
+              <button className="ghost" onClick={() => api.downloadIcs(p.id).catch(e => alert(`ICS生成に失敗: ${e.message}`))}>
+                📅 ICSをダウンロード
+              </button>
             )}
           </div>
         </div>

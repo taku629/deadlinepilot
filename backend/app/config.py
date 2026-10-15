@@ -31,6 +31,12 @@ class Settings:
     session_secret: str = os.environ.get("SESSION_SECRET", "dev-insecure-secret-change-me")
     allowed_domains: list[str] = None  # type: ignore
     frontend_origin: str = os.environ.get("FRONTEND_ORIGIN", "*")
+    # The API's own public URL. Its host is allowlisted so the watcher can
+    # crawl the built-in demo "organizer page" (/demo/notice/...).
+    public_base_url: str = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+    # Shared secret Cloud Scheduler sends to POST /api/cron/watch.
+    cron_token: str = os.environ.get("CRON_TOKEN", "")
+    watch_interval_label: str = os.environ.get("WATCH_INTERVAL_LABEL", "6時間ごと")
 
     # Approximate USD prices per 1M tokens (input, output) for cost display
     price_table: dict = None  # type: ignore

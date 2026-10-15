@@ -176,8 +176,16 @@ def upsert_deadline(title: str, deadline_utc: str, deadline_jst: str,
     ctx.step("tool_call", "upsert_deadline", title)
 
     store = get_store()
-    existing = [d for d in store.query("deadlines", {"user_id": ctx.user_id})
+    rows = store.query("deadlines", {"user_id": ctx.user_id})
+    existing = [d for d in rows
                 if _norm_title(d.get("title")) == _norm_title(title)]
+    if not existing and source_id:
+        # Same source, slightly different wording (e.g. a re-crawled page
+        # that now says "extended") -> treat as the same event.
+        existing = [d for d in rows if d.get("source_id") == source_id
+                    and _similar(d.get("title"), title) >= 0.6]
+        existing.sort(key=lambda d: _similar(d.get("title"), title),
+                      reverse=True)
     base = {
         "title": title, "deadline_utc": deadline_utc,
         "deadline_jst": deadline_jst, "deadline_local": deadline_local,
@@ -189,23 +197,37 @@ def upsert_deadline(title: str, deadline_utc: str, deadline_jst: str,
         "updated_at": now_utc_iso(),
     }
     if existing:
-        doc = existing[0]
+        doc = dict(existing[0])  # copy: the in-memory store mutates in place
         conflict = (doc.get("deadline_utc") and deadline_utc
                     and doc["deadline_utc"] != deadline_utc)
         history = doc.get("history", [])
+        same_source = bool(source_id) and doc.get("source_id") == source_id
         if conflict:
             history.append({
                 "deadline_utc": doc["deadline_utc"],
+                "deadline_jst": doc.get("deadline_jst"),
                 "source_id": doc.get("source_id"),
                 "seen_at": doc.get("updated_at"),
             })
-            base["status"] = "conflict"
+            # Same source published a new value -> an official change.
+            # Different sources disagree -> a conflict for a human to settle.
+            base["status"] = "changed" if same_source else "conflict"
+            base["title"] = doc.get("title") or title
         base["history"] = history[-10:]
         did = doc["id"]
         store.update("deadlines", did, base)
-        timer.finish(("conflict: value differs from existing record"
-                      if conflict else "updated existing record"))
-        return {"id": did, "merged": True, "conflict": conflict}
+        if conflict:
+            kind = "changed" if same_source else "conflict"
+            timer.finish(f"{kind}: {doc.get('deadline_jst')} -> {deadline_jst}")
+            return {"id": did, "merged": True, "conflict": not same_source,
+                    "changed": same_source,
+                    "previous_deadline_jst": doc.get("deadline_jst"),
+                    "new_deadline_jst": deadline_jst,
+                    "next_step": ("締切が変更されました。propose_action で"
+                                  "変更内容（旧→新）を人間に報告してください。")}
+        timer.finish("updated existing record (no change)")
+        return {"id": did, "merged": True, "conflict": False,
+                "changed": False}
     did = store.put("deadlines", new_doc(base))
     timer.finish(f"created deadline {did}")
     return {"id": did, "merged": False, "conflict": False}
@@ -213,6 +235,11 @@ def upsert_deadline(title: str, deadline_utc: str, deadline_jst: str,
 
 def _norm_title(t: str | None) -> str:
     return re.sub(r"\s+", "", (t or "").lower())
+
+
+def _similar(a: str | None, b: str | None) -> float:
+    from difflib import SequenceMatcher
+    return SequenceMatcher(None, _norm_title(a), _norm_title(b)).ratio()
 
 
 def detect_conflicts() -> dict:
@@ -239,7 +266,7 @@ def detect_conflicts() -> dict:
             continue
         if dt < now:
             passed.append(d["id"])
-            if d.get("status") == "active":
+            if d.get("status") in ("active", "changed"):
                 store.update("deadlines", d["id"], {"status": "passed"})
     parsed.sort(key=lambda x: x[1])
     for i in range(len(parsed)):
@@ -250,7 +277,7 @@ def detect_conflicts() -> dict:
                 collisions.append({"a": d1["title"], "b": d2["title"],
                                    "gap_hours": round(gap / 3600, 1)})
     for d in rows:
-        if d.get("status") == "conflict":
+        if d.get("status") in ("conflict", "changed"):
             conflicts.append({"id": d["id"], "title": d["title"],
                               "current": d.get("deadline_utc"),
                               "history": d.get("history", [])[-3:]})
@@ -286,7 +313,20 @@ def propose_action(kind: str, title: str, detail: str,
     return {"proposal_id": did, "status": "pending"}
 
 
+def _offload(fn):
+    """Expose a blocking tool to ADK as an async tool that runs in a worker
+    thread (context vars are copied), so network / Gemini calls never block
+    the event loop that also serves the live-trace polling requests."""
+    import asyncio
+    import functools
+
+    @functools.wraps(fn)
+    async def wrapper(*args, **kwargs):
+        return await asyncio.to_thread(fn, *args, **kwargs)
+    return wrapper
+
+
 # The allowlist the planner is wired with. Nothing else is callable.
-TOOL_ALLOWLIST = [fetch_page, parse_email, extract_deadlines,
-                  normalize_timezone, upsert_deadline, detect_conflicts,
-                  propose_action]
+TOOL_ALLOWLIST = [_offload(fetch_page), _offload(parse_email),
+                  _offload(extract_deadlines), normalize_timezone,
+                  upsert_deadline, detect_conflicts, propose_action]

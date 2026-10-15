@@ -6,6 +6,7 @@ zoneinfo only.
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -80,6 +81,8 @@ def to_jst(deadline_local: str, source_tz: str | None) -> dict:
             except ValueError:
                 continue
     if dt is None:
+        dt = _parse_free_text(raw)
+    if dt is None:
         raise ValueError(f"unparseable deadline: {deadline_local!r}")
 
     if dt.tzinfo is None:
@@ -94,6 +97,33 @@ def to_jst(deadline_local: str, source_tz: str | None) -> dict:
         "deadline_jst": dt_jst.isoformat(),
         "resolved_zone": zone_name,
     }
+
+
+_TZ_WORDS = re.compile(
+    r"\b(" + "|".join(sorted(TZ_MAP, key=len, reverse=True)) +
+    r"|anywhere on earth)\b|\(\s*\)", re.IGNORECASE)
+_JA_DATE = re.compile(
+    r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日"
+    r"(?:\s*[（(][^）)]*[）)])?\s*(?:(\d{1,2})\s*[:：時]\s*(\d{1,2})?)?")
+
+
+def _parse_free_text(raw: str) -> datetime | None:
+    """Fallback for human-written dates the strict formats miss, e.g.
+    'November 2, 2026, 11:59 PM', 'Oct 28, 2026 23:59 UTC',
+    '2026年10月30日（金）23:59'. Timezone words are stripped: the zone
+    always comes from the separate source_tz token."""
+    m = _JA_DATE.search(raw)
+    if m:
+        y, mo, d, hh, mm = m.groups()
+        return datetime(int(y), int(mo), int(d), int(hh or 23),
+                        int(mm or (59 if hh is None else 0)))
+    cleaned = _TZ_WORDS.sub(" ", raw).replace(" at ", " ")
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" ,")
+    try:
+        from dateutil import parser as du
+        return du.parse(cleaned, fuzzy=True, ignoretz=True)
+    except Exception:
+        return None
 
 
 def now_utc_iso() -> str:

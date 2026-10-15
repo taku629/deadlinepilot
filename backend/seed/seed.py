@@ -124,6 +124,8 @@ def main():
                 for d in store.query(coll, {"user_id": uid}, limit=2000):
                     store.delete(coll, d["id"])
             store.put("meta", {"id": "demo_reset", "tag": tag}, "demo_reset")
+            from app.watch import set_demo_version
+            set_demo_version(uid, 0)
             print(f"reset judge demo data (tag={tag})")
     # skip if already seeded
     if store.query("deadlines", {"user_id": uid}, limit=1):
@@ -158,6 +160,37 @@ def main():
             "status": "pending", "injection_flag": "",
         }))
 
+    # A monitored URL source: the built-in demo organizer page. Its baseline
+    # fingerprint is stored so the first crawl after "extend" sees a change.
+    from app.config import settings
+    if settings.public_base_url:
+        from app.tz import to_jst
+        from app.watch import (DEMO_EVENT, demo_notice_url, fingerprint,
+                               render_demo_notice)
+        sid = store.put("sources", new_doc({
+            "user_id": uid, "type": "url", "url": demo_notice_url(uid),
+            "label": f"{DEMO_EVENT}（主催者ページ・デモ）",
+            "raw_text": "", "status": "processed", "injection_flag": "",
+            "content_hash": fingerprint(render_demo_notice(0)),
+            "last_checked_at": None,
+        }))
+        for title, local, act in [
+            (f"{DEMO_EVENT} 最終提出締切", "November 20, 2026, 23:59",
+             "ダッシュボードからリポジトリURLとデモ動画を提出"),
+            (f"{DEMO_EVENT} チーム統合締切", "November 6, 2026, 23:59",
+             "チームを組む場合はこの日までに統合"),
+        ]:
+            n = to_jst(local, "AoE")
+            store.put("deadlines", new_doc({
+                "user_id": uid, "title": title,
+                "deadline_utc": n["deadline_utc"],
+                "deadline_jst": n["deadline_jst"],
+                "deadline_local": local, "source_tz": "AoE",
+                "action_required": act, "url": demo_notice_url(uid),
+                "source_id": sid, "confidence": 0.95, "status": "active",
+                "history": [],
+            }))
+
     # 1 pending proposal so the approval queue isn't empty on first login
     store.put("proposals", new_doc({
         "user_id": uid, "kind": "ics_event",
@@ -167,7 +200,7 @@ def main():
         "payload": {"deadline_utc": "2026-10-15T14:59:00+00:00"},
     }))
 
-    print(f"seeded: judge/{JUDGE_PASSWORD} user_id={uid} "
+    print(f"seeded: judge user_id={uid} "
           f"deadlines={len(DEADLINES)} sources=3")
 
 

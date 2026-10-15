@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 
 from ..config import settings
 from ..llm import estimate_cost_usd
@@ -22,28 +23,46 @@ def _truncate(s: str, n: int = 400) -> str:
     return s if len(s) <= n else s[:n] + "…"
 
 
-async def run_agent(user_id: str, source_ids: list[str]) -> dict:
-    """Run the planner against the given sources (or all pending sources)."""
+_RUN_ID_RE = re.compile(r"^[a-zA-Z0-9]{8,40}$")
+
+
+async def run_agent(user_id: str, source_ids: list[str], run_id: str = "",
+                    trigger: str = "manual", hint: str = "",
+                    pre_steps: list[tuple] | None = None) -> dict:
+    """Run the planner against the given sources (or all pending sources).
+
+    run_id may be supplied by the client so the UI can follow the run live
+    (it polls GET /api/runs/{id} while this request is in flight).
+    trigger: manual | watch | schedule.  hint: extra planner context (e.g.
+    "this page changed since the last crawl").  pre_steps: steps to record
+    before the planner starts (the watcher's change-detection evidence).
+    """
     store = get_store()
     if not source_ids:
         pending = store.query("sources", {"user_id": user_id,
                                           "status": "pending"})
         source_ids = [s["id"] for s in pending]
 
+    if not run_id or not _RUN_ID_RE.match(run_id) or store.get("runs", run_id):
+        run_id = ""
     run = new_doc({
         "user_id": user_id, "status": "running", "goal": GOAL,
+        "trigger": trigger,
         "source_ids": source_ids, "started_at": now_utc_iso(),
         "steps": [], "tool_calls": 0, "tokens_in": 0, "tokens_out": 0,
         "est_cost_usd": 0.0, "injection_detections": 0,
     })
-    run_id = store.put("runs", run)
+    run_id = store.put("runs", run, run_id or None)
     ctx = RunContext(run_id=run_id, user_id=user_id)
     token = current.set(ctx)
+    for st in pre_steps or []:
+        ctx.step(*st)
 
     logger.info(json.dumps({"event": "run_start", "run_id": run_id,
                             "user_id": user_id, "sources": source_ids}))
     try:
-        await asyncio.wait_for(_execute(ctx, source_ids), settings.run_timeout_seconds)
+        await asyncio.wait_for(_execute(ctx, source_ids, hint),
+                               settings.run_timeout_seconds)
         status, err = "success", ""
         if ctx.limit_hit:
             status, err = "success", f"limit_hit:{ctx.limit_hit}"
@@ -63,7 +82,11 @@ async def run_agent(user_id: str, source_ids: list[str]) -> dict:
         "tokens_in": ctx.tokens_in, "tokens_out": ctx.tokens_out,
         "est_cost_usd": round(ctx.est_cost_usd, 6),
         "injection_detections": ctx.injection_detections,
+        "summary": next((st["summary"] for st in reversed(ctx.steps)
+                         if st["kind"] == "model" and st["name"] == "判断"),
+                        ""),
     }
+    ctx.live = False
     store.update("runs", run_id, patch)
     for sid in source_ids:
         src = store.get("sources", sid)
@@ -82,7 +105,8 @@ async def run_agent(user_id: str, source_ids: list[str]) -> dict:
     return run
 
 
-async def _execute(ctx: RunContext, source_ids: list[str]) -> None:
+async def _execute(ctx: RunContext, source_ids: list[str],
+                   hint: str = "") -> None:
     from google.adk.runners import Runner
     from google.adk.sessions import InMemorySessionService
     from google.genai import types as gt
@@ -112,6 +136,8 @@ async def _execute(ctx: RunContext, source_ids: list[str]) -> None:
         parts.append(f"- {sid}: type={s.get('type')} url={s.get('url')}")
     if parts:
         prompt = "対象ソース一覧:\n" + "\n".join(parts) + "\n" + prompt
+    if hint:
+        prompt = hint + "\n\n" + prompt
 
     ctx.step("model", "planner_start", "プランナー起動",
              {"model": settings.planner_model, "sources": source_ids})
@@ -136,19 +162,19 @@ def _record_event(ctx: RunContext, event) -> None:
         fc = getattr(part, "function_call", None)
         if fc:
             args = dict(getattr(fc, "args", {}) or {})
-            ctx.step("tool_call", fc.name or "?",
+            ctx.step("io", f"call:{fc.name or '?'}",
                      _truncate(json.dumps(args, ensure_ascii=False, default=str)),
                      {"args": _safe(args)})
         fr = getattr(part, "function_response", None)
         if fr:
             resp = getattr(fr, "response", None)
-            ctx.step("tool_result", getattr(fr, "name", "?"),
+            ctx.step("io", f"response:{getattr(fr, 'name', '?')}",
                      _truncate(json.dumps(resp, ensure_ascii=False, default=str)
                                if not isinstance(resp, str) else resp))
         txt = getattr(part, "text", None)
         if txt and txt.strip():
             thought = getattr(part, "thought", False)
-            ctx.step("model", "思考" if thought else "回答",
+            ctx.step("model", "思考" if thought else "判断",
                      _truncate(txt.strip()))
     # usage logged to Cloud Logging for observability
     logger = logging.getLogger("deadlinepilot.agent")

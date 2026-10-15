@@ -74,6 +74,10 @@ def domain_allowed(url: str) -> bool:
         return False
     if not host:
         return False
+    if settings.public_base_url:
+        own = (urlparse(settings.public_base_url).hostname or "").lower()
+        if own and host == own:
+            return True
     for d in settings.allowed_domains:
         d = d.lower()
         if host == d or host.endswith("." + d):

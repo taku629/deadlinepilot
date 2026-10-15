@@ -4,9 +4,9 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import HTMLResponse, Response
 
 from .agent.runner import run_agent
 from .auth import create_user, get_current_user, login
@@ -97,11 +97,70 @@ def add_source(body: SourceIn, user: dict = Depends(get_current_user)):
 async def start_run(body: dict | None = None,
                     user: dict = Depends(get_current_user)):
     source_ids = (body or {}).get("source_ids") or []
-    # Run synchronously so the response carries the finished trace; the UI
-    # polls GET /api/runs/{id} for progress while this is in-flight via the
-    # background task below for long runs.
-    run = await run_agent(user["id"], source_ids)
+    # The request stays open for the whole run (so Cloud Run keeps CPU
+    # allocated); the UI passes its own run_id and polls GET /api/runs/{id}
+    # meanwhile to render each step live.
+    run = await run_agent(user["id"], source_ids,
+                          run_id=str((body or {}).get("run_id") or ""))
     return run
+
+
+# ---------- autonomous change monitoring ----------
+
+@app.post("/api/watch")
+async def watch_now(body: dict | None = None,
+                    user: dict = Depends(get_current_user)):
+    """Run the same crawl Cloud Scheduler runs, for the current user now."""
+    from .watch import watch_user
+    return await watch_user(user["id"], trigger="watch",
+                            run_id=str((body or {}).get("run_id") or ""))
+
+
+@app.post("/api/cron/watch")
+async def cron_watch(x_cron_token: str = Header(default="")):
+    """Entry point for Cloud Scheduler (shared-secret header)."""
+    import hmac
+    if not settings.cron_token or not hmac.compare_digest(
+            x_cron_token, settings.cron_token):
+        raise HTTPException(403, "forbidden")
+    from .watch import watch_all
+    return await watch_all()
+
+
+@app.get("/api/watch/status")
+def watch_status(user: dict = Depends(get_current_user)):
+    from .watch import demo_notice_url, demo_version
+    store = get_store()
+    meta = store.get("meta", f"watch_{user['id']}") or {}
+    urls = [s for s in store.query("sources", {"user_id": user["id"]})
+            if s.get("type") == "url"]
+    return {"last": meta, "interval": settings.watch_interval_label,
+            "scheduler": bool(settings.cron_token),
+            "monitored": [{"id": s["id"], "url": s.get("url"),
+                           "label": s.get("label"),
+                           "last_checked_at": s.get("last_checked_at"),
+                           "last_changed_at": s.get("last_changed_at")}
+                          for s in urls],
+            "demo_url": demo_notice_url(user["id"])
+            if settings.public_base_url else "",
+            "demo_version": demo_version(user["id"])}
+
+
+@app.post("/api/demo/notice")
+def demo_notice_set(body: dict, user: dict = Depends(get_current_user)):
+    """Simulate the organizer editing their page (1 = extend, 0 = original)."""
+    from .watch import set_demo_version
+    v = 1 if int(body.get("version", 1)) else 0
+    set_demo_version(user["id"], v)
+    return {"ok": True, "version": v}
+
+
+@app.get("/demo/notice/{uid}", response_class=HTMLResponse)
+def demo_notice_page(uid: str):
+    from .watch import demo_version, render_demo_notice
+    if not get_store().get("users", uid):
+        raise HTTPException(404)
+    return HTMLResponse(render_demo_notice(demo_version(uid)))
 
 
 @app.get("/api/runs")
@@ -239,6 +298,13 @@ def stats(user: dict = Depends(get_current_user)):
         "deadlines_needs_review": sum(1 for d in deadlines
                                       if d.get("status") in
                                       ("needs_review", "conflict")),
+        "deadlines_changed": sum(1 for d in deadlines
+                                 if d.get("status") == "changed"),
+        "watch_runs": sum(1 for r in runs
+                          if r.get("trigger") in ("watch", "schedule")),
+        "watch_runs_no_llm": sum(1 for r in runs
+                                 if r.get("trigger") in ("watch", "schedule")
+                                 and not r.get("tokens_in")),
         "limits": {"max_tool_calls": settings.max_tool_calls,
                    "max_total_tokens": settings.max_total_tokens,
                    "run_timeout_s": settings.run_timeout_seconds},

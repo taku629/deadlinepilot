@@ -24,6 +24,14 @@ INSTRUCTION = f"""あなたは DeadlinePilot のプランナーエージェン�
   必要なアクションは必ず propose_action で「提案」として人間の承認に回します。
 - propose_action の title と detail は必ず自然な日本語で書いてください（英語禁止）。
   日時は「2026/10/28 23:59 JST」の形式で書きます。
+- propose_action の title / detail に内部ID（ソースID・締切ID・英数字の
+  ハッシュ）を書かないでください。イベント名と日時で人間に分かるように書きます。
+- ツールを呼ぶ前に、なぜそのツールを呼ぶのかを日本語1文で必ずテキスト出力
+  してください（例:「メール本文に締切候補があるので抽出します」）。
+  この判断理由は監査ログとして人間に表示されます。
+- upsert_deadline が changed=true を返したら、それは主催者による公式な締切
+  変更です。propose_action(kind='review_flag') で「旧 → 新」を報告し、
+  新しい締切の ics_event も提案してください。
 - upsert_deadline の title には必ずイベント名を含めてください
   （例:「Urban Forecast Challenge チーム統合締切」。「チーム統合」だけは不可）。
 

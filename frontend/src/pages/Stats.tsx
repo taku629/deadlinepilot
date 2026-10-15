@@ -28,6 +28,11 @@ export default function Stats() {
           <div className="statnum">{s.deadlines_total}
             <span className="small" style={{ color: 'var(--warn)' }}>
               {' '}({s.deadlines_needs_review})</span></div></div>
+        <div className="card"><div className="dim small">変更監視の巡回</div>
+          <div className="statnum">{s.watch_runs ?? 0}</div>
+          <div className="small dim">うち LLM 不要で終了 {s.watch_runs_no_llm ?? 0} 回</div></div>
+        <div className="card"><div className="dim small">締切変更を検知</div>
+          <div className="statnum" style={{ color: 'var(--purp)' }}>{s.deadlines_changed ?? 0}</div></div>
       </div>
       <div className="card">
         <h3 style={{ marginTop: 0 }}>ガバナンス設定</h3>
@@ -39,6 +44,8 @@ export default function Stats() {
               <td className="mono">{s.limits.max_total_tokens.toLocaleString()}</td></tr>
             <tr><td className="dim">タイムアウト</td>
               <td className="mono">{s.limits.run_timeout_s}s</td></tr>
+            <tr><td className="dim">外部への書き込み</td>
+              <td className="small">エージェントは提案のみ。人間の承認後にのみ実行（ICS生成）</td></tr>
             <tr><td className="dim">fetch_page 許可ドメイン</td>
               <td className="mono small">{s.allowed_domains.join(', ')}</td></tr>
           </tbody>

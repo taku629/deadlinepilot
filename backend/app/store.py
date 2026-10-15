@@ -18,10 +18,8 @@ def _id() -> str:
 class MemoryStore:
     """Simple dict-backed store implementing the same interface as Firestore."""
     def __init__(self):
-        self.data: dict[str, dict[str, dict[str, Any]]] = {
-            "users": {}, "sources": {}, "deadlines": {},
-            "proposals": {}, "runs": {},
-        }
+        from collections import defaultdict
+        self.data: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
 
     # -- generic helpers -------------------------------------------------
     def put(self, coll: str, doc: dict, doc_id: str | None = None) -> str:

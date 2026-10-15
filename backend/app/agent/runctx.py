@@ -30,6 +30,7 @@ class RunContext:
     est_cost_usd: float = 0.0
     injection_detections: int = 0
     limit_hit: str = ""
+    live: bool = True  # stream steps to the run doc for the live UI
 
     def step(self, kind: str, name: str = "", summary: str = "",
              detail: dict | None = None, latency_ms: int = 0) -> None:
@@ -42,6 +43,23 @@ class RunContext:
             "latency_ms": latency_ms,
             "ts": now_utc_iso(),
         })
+        self.flush()
+
+    def flush(self) -> None:
+        """Persist progress so the UI can render the run live while the
+        planner is still working."""
+        if not self.live:
+            return
+        try:
+            from ..store import get_store
+            get_store().update("runs", self.run_id, {
+                "steps": self.steps, "tool_calls": self.tool_calls,
+                "tokens_in": self.tokens_in, "tokens_out": self.tokens_out,
+                "est_cost_usd": round(self.est_cost_usd, 6),
+                "injection_detections": self.injection_detections,
+            })
+        except Exception:
+            pass
 
     def check_tool_budget(self, tool_name: str) -> str | None:
         """Return an error string when governance limits are hit."""

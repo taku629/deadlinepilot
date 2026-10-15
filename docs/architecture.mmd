@@ -3,6 +3,8 @@ flowchart TB
         UI["ブラウザ UI（日本語）"]
     end
 
+    SCH["Cloud Scheduler<br/>6時間ごと"]
+
     subgraph CR_FE["Cloud Run: deadlinepilot-web"]
         NGINX["nginx<br/>静的SPA配信 + /api プロキシ"]
     end
@@ -16,11 +18,12 @@ flowchart TB
             T2["parse_email"]
             T3["extract_deadlines<br/>(structured output)"]
             T4["normalize_timezone<br/>(zoneinfo・LLM禁止)"]
-            T5["upsert_deadline / detect_conflicts"]
+            T5["upsert_deadline / detect_conflicts<br/>(変更・矛盾を判定)"]
             T6["propose_action<br/>(外部書込みは提案のみ)"]
         end
         SEC["注入防御<br/>①ヒューリスティック<br/>②Gemini分類器<br/>③区切りタグ隔離"]
-        GOV["ガバナンス<br/>ツール上限14回<br/>トークン上限<br/>240s タイムアウト"]
+        GOV["ガバナンス<br/>ツール上限20回/実行<br/>トークン上限20万<br/>240s タイムアウト"]
+        WATCH["変更監視 Watcher<br/>URL再取得→指紋比較<br/>変化時のみエージェント起動"]
         TRACE["トレース記録<br/>step/ツール/トークン/コスト"]
     end
 
@@ -46,5 +49,7 @@ flowchart TB
     T6 --> HUMAN
     HUMAN -->|承認| ICS
     TRACE --> CL
+    SCH -->|"POST /api/cron/watch<br/>(共有シークレット)"| WATCH
+    WATCH -->|変更あり| AGENT
     CR_BE --> SM
     NGINX --> UI
