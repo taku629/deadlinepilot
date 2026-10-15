@@ -114,6 +114,12 @@ def main():
     judge = create_user("judge", JUDGE_PASSWORD)
     uid = judge["id"]
 
+    # RESET_DEMO=true wipes the judge's data so the demo starts clean
+    if os.environ.get("RESET_DEMO", "").lower() == "true":
+        for coll in ("deadlines", "sources", "proposals", "runs"):
+            for d in store.query(coll, {"user_id": uid}, limit=2000):
+                store.delete(coll, d["id"])
+        print("reset judge data")
     # skip if already seeded
     if store.query("deadlines", {"user_id": uid}, limit=1):
         print("already seeded; judge user ensured")
