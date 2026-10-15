@@ -114,12 +114,17 @@ def main():
     judge = create_user("judge", JUDGE_PASSWORD)
     uid = judge["id"]
 
-    # RESET_DEMO=true wipes the judge's data so the demo starts clean
-    if os.environ.get("RESET_DEMO", "").lower() == "true":
-        for coll in ("deadlines", "sources", "proposals", "runs"):
-            for d in store.query(coll, {"user_id": uid}, limit=2000):
-                store.delete(coll, d["id"])
-        print("reset judge data")
+    # RESET_DEMO=<tag>: wipe the judge's demo data once per tag (deploy.sh
+    # passes the image tag, so every deploy starts from clean sample data).
+    tag = os.environ.get("RESET_DEMO", "")
+    if tag:
+        marker = store.get("meta", "demo_reset") or {}
+        if marker.get("tag") != tag:
+            for coll in ("deadlines", "sources", "proposals", "runs"):
+                for d in store.query(coll, {"user_id": uid}, limit=2000):
+                    store.delete(coll, d["id"])
+            store.put("meta", {"id": "demo_reset", "tag": tag}, "demo_reset")
+            print(f"reset judge demo data (tag={tag})")
     # skip if already seeded
     if store.query("deadlines", {"user_id": uid}, limit=1):
         print("already seeded; judge user ensured")
