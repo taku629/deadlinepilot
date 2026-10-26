@@ -16,7 +16,9 @@ from app.auth import create_user  # noqa: E402
 from app.store import get_store, new_doc  # noqa: E402
 from app.tz import JST  # noqa: E402
 
-JUDGE_PASSWORD = os.environ.get("JUDGE_PASSWORD", "ChangeMe-Demo-2026!")
+JUDGE_PASSWORD = os.environ.get("JUDGE_PASSWORD") or __import__("secrets").token_urlsafe(16)
+if not os.environ.get("JUDGE_PASSWORD"):
+    print(f"[seed] JUDGE_PASSWORD not set; generated one for this run: {JUDGE_PASSWORD}")
 
 
 def jst(y, m, d, hh, mm=0):
