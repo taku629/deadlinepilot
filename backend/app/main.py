@@ -31,8 +31,12 @@ def _startup_seed():
     import os
     store = get_store()
     if not store.query("users", limit=1):
-        pw = os.environ.get("JUDGE_PASSWORD", "ChangeMe-Demo-2026!")
-        create_user("judge", pw)
+        pw = os.environ.get("JUDGE_PASSWORD")
+        if pw:
+            create_user("judge", pw)
+        else:
+            logging.getLogger(__name__).warning(
+                "JUDGE_PASSWORD is not set; demo account was not created")
     if os.environ.get("SEED_DEMO", "").lower() == "true":
         try:
             from seed.seed import main as seed_main
